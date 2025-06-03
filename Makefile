@@ -22,7 +22,7 @@ ARCHFLAGS =-m32
 ASFLAGS =
 LDFLAGS = -melf_i386 -Tlink.ld
 
-CFLAGS = -std=c99 -O3 -g -ffreestanding -nostdlib \
+CFLAGS = -I$(INC_DIR) -std=c99 -O3 -g -ffreestanding -nostdlib \
 	-Wall \
 	-Wextra \
 	-Werror \
@@ -37,6 +37,9 @@ CFLAGS = -std=c99 -O3 -g -ffreestanding -nostdlib \
 
 all: $(IMAGE)
 
+run: $(BUILD_DIR) | $(ELFFILE)
+	qemu-system-i386 -cdrom $(IMAGE)
+
 $(IMAGE): $(BUILD_DIR) | $(BIN)
 	mkdir -p $(BUILD_DIR)/boot/grub
 	cp grub.cfg $(BUILD_DIR)/boot/grub
@@ -50,9 +53,6 @@ $(BUILD_DIR)/%.o: $(SRC_DIR)/%.c
 
 $(BUILD_DIR)/%.o: $(SRC_DIR)/%.s
 	$(CC) $(ASFLAGS) $(ARCHFLAGS) -c $< -o $@
-
-qemu: $(BUILD_DIR) | $(ELFFILE)
-	qemu-system-i386 -cdrom $(IMAGE)
 
 $(BUILD_DIR):
 	mkdir -p $@
