@@ -1,6 +1,6 @@
 BUILD_NAME = main
 IMAGE = $(BUILD_NAME).iso
-BIN = $(BUILD_DIR)/$(BUILD_NAME).bin
+BIN = $(BUILD_NAME).bin
 INC_DIR = include
 SRC_DIR = src
 BUILD_DIR = build
@@ -8,6 +8,7 @@ BUILD_DIR = build
 CC = gcc
 LD = ld
 AS = as
+OBJCOPY = objcopy
 
 GRUB_DIR = /usr/lib/grub/i386-pc/
 
@@ -22,7 +23,7 @@ ARCHFLAGS =-m32
 ASFLAGS =
 LDFLAGS = -melf_i386 -Tlink.ld
 
-CFLAGS = -I$(INC_DIR) -std=c99 -O3 -g -ffreestanding -nostdlib \
+CFLAGS = -I$(INC_DIR) -std=c99 -O3 -g -ffreestanding -nostdlib -fno-pic -fno-pie -no-pie \
 	-Wall \
 	-Wextra \
 	-Werror \
@@ -35,18 +36,24 @@ CFLAGS = -I$(INC_DIR) -std=c99 -O3 -g -ffreestanding -nostdlib \
 	-Wswitch-default \
 	-Wswitch-enum
 
+STRIP_SYMBOLS = cursor_x \
+		cursor_y
+STRIP_FLAGS = $(addprefix --strip-symbol=, $(STRIP_SYMBOLS))
+
+
 all: $(IMAGE)
 
 run: $(BUILD_DIR) | $(ELFFILE)
 	qemu-system-i386 -cdrom $(IMAGE)
 
-$(IMAGE): $(BUILD_DIR) | $(BIN)
+$(IMAGE): $(BUILD_DIR) | $(BUILD_DIR)/$(BIN)
 	mkdir -p $(BUILD_DIR)/boot/grub
 	cp grub.cfg $(BUILD_DIR)/boot/grub
 	grub-mkrescue -d $(GRUB_DIR) -o $(IMAGE) $(BUILD_DIR)
 
-$(BIN): $(AOBJS) $(COBJS)
+$(BUILD_DIR)/$(BIN): $(AOBJS) $(COBJS)
 	$(LD) $(LDFLAGS) $^ -o $@
+	$(OBJCOPY) $(STRIP_FLAGS) $@
 
 $(BUILD_DIR)/%.o: $(SRC_DIR)/%.c
 	$(CC) $(CFLAGS) $(ARCHFLAGS) -c $< -o $@
