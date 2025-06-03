@@ -43,7 +43,7 @@ STRIP_FLAGS = $(addprefix --strip-symbol=, $(STRIP_SYMBOLS))
 
 all: $(IMAGE)
 
-run: $(BUILD_DIR) | $(ELFFILE)
+run: $(IMAGE)
 	qemu-system-i386 -cdrom $(IMAGE)
 
 $(IMAGE): $(BUILD_DIR) | $(BUILD_DIR)/$(BIN)
