@@ -1,4 +1,5 @@
 ENTRY(_start)
+OUTPUT_FORMAT("elf32-i386")
 
 base_address = 0x100000;
 

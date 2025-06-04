@@ -1,6 +1,5 @@
 .section .multiboot # multiboot2 header
 .L_multiboot_start:
-
 	.equ .L_MULTIBOOT_MAGIC, 0xE85250D6
 	.equ .L_MULTIBOOT_ARCH, 0x0 # arch i386
 	.equ .L_MULTIBOOT_HEADER_LENGTH, .L_multiboot_end - .L_multiboot_start
@@ -16,10 +15,7 @@
     .short .L_MULTIBOOT_TAG_TYPE
     .short .L_MULTIBOOT_TAG_FLAGS
     .long .L_MULTIBOOT_TAG_SIZE
-
 .L_multiboot_end:
-
-.section .note.GNU-stack,"",@progbits
 
 .extern _stack_top
 .extern main

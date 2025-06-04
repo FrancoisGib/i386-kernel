@@ -7,23 +7,24 @@ BUILD_DIR = build
 
 CC = gcc
 LD = ld
-AS = as
+AS = nasm
 OBJCOPY = objcopy
 
 GRUB_DIR = /usr/lib/grub/i386-pc/
 
 CSOURCES = $(wildcard $(SRC_DIR)/*.c)
-ASOURCES = $(wildcard $(SRC_DIR)/*.s)
+ASOURCES = $(wildcard $(SRC_DIR)/*.s) # AT&T syntax
+ASMSOURCES += $(wildcard $(SRC_DIR)/*.asm) # intel syntax
 
 COBJS = $(patsubst $(SRC_DIR)/%.c, $(BUILD_DIR)/%.o, $(CSOURCES))
-AOBJS = $(patsubst $(SRC_DIR)/%.s, $(BUILD_DIR)/%.o, $(ASOURCES))
+AOBJS = $(patsubst $(SRC_DIR)/%.s, $(BUILD_DIR)/%.o, $(ASOURCES)) 
+ASMOBJS = $(patsubst $(SRC_DIR)/%.asm, $(BUILD_DIR)/%.o, $(ASMSOURCES))
 
-ARCHFLAGS =-m32
+ASFLAGS = -felf
+LDFLAGS = -Tlink.ld -melf_i386 -z noexecstack
+ARCHFLAGS = -m32
 
-ASFLAGS =
-LDFLAGS = -melf_i386 -Tlink.ld
-
-CFLAGS = -I$(INC_DIR) -std=c99 -O3 -g -ffreestanding -nostdlib -fno-pic -fno-pie -no-pie \
+CFLAGS = -I$(INC_DIR) -std=c2x -O3 -g -ffreestanding -nostdlib -fno-pic -fno-pie -no-pie \
 	-Wall \
 	-Wextra \
 	-Werror \
@@ -32,7 +33,6 @@ CFLAGS = -I$(INC_DIR) -std=c99 -O3 -g -ffreestanding -nostdlib -fno-pic -fno-pie
 	-Wunreachable-code \
 	-Wcast-align \
 	-Wshadow \
-	-pedantic \
 	-Wswitch-default \
 	-Wswitch-enum
 
@@ -51,15 +51,20 @@ $(IMAGE): $(BUILD_DIR) | $(BUILD_DIR)/$(BIN)
 	cp grub.cfg $(BUILD_DIR)/boot/grub
 	grub-mkrescue -d $(GRUB_DIR) -o $(IMAGE) $(BUILD_DIR)
 
-$(BUILD_DIR)/$(BIN): $(AOBJS) $(COBJS)
+$(BUILD_DIR)/$(BIN): $(AOBJS) $(ASMOBJS) $(COBJS)
 	$(LD) $(LDFLAGS) $^ -o $@
 	$(OBJCOPY) $(STRIP_FLAGS) $@
 
 $(BUILD_DIR)/%.o: $(SRC_DIR)/%.c
 	$(CC) $(CFLAGS) $(ARCHFLAGS) -c $< -o $@
 
+# AT&T syntax
 $(BUILD_DIR)/%.o: $(SRC_DIR)/%.s
-	$(CC) $(ASFLAGS) $(ARCHFLAGS) -c $< -o $@
+	$(CC) $(ARCHFLAGS) -c $< -o $@
+
+# intel syntax
+$(BUILD_DIR)/%.o: $(SRC_DIR)/%.asm
+	$(AS) $(ASFLAGS) $< -o $@
 
 $(BUILD_DIR):
 	mkdir -p $@
