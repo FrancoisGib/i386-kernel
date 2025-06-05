@@ -3,16 +3,6 @@
 #include "lib.h"
 
 #define GDT_SEGMENTS_NUMBER 6
-#define RPL 0
-#define TI 0
-
-#define GDT_KERNEL_CODE_INDEX 1
-#define GDT_KERNEL_DATA_INDEX 2
-#define GDT_TSS_INDEX 5
-
-#define KERNEL_CODE_SELECTOR ((GDT_KERNEL_CODE_INDEX << 3) | (TI << 2) | RPL)
-#define KERNEL_DATA_SELECTOR ((GDT_KERNEL_DATA_INDEX << 3) | (TI << 2) | RPL)
-#define TSS_SELECTOR ((GDT_TSS_INDEX << 3) | (TI << 2) | RPL)
 
 #define LIMIT_LOW(limit) ((limit) & 0xFFFF)
 #define BASE_LOW(base) ((base) & 0xFFFF)
@@ -62,7 +52,7 @@
 #define GDT_ENTRY(base_address, limit, ring, descriptor_type, segment_type, granularity)                            \
     (gdt_entry_t)                                                                                                   \
     {                                                                                                               \
-        .limit_low = LIMIT_LOW(base_address),                                                                       \
+        .limit_low = LIMIT_LOW(limit),                                                                              \
         .base_low = BASE_LOW(base_address),                                                                         \
         .base_mid = BASE_MID(base_address),                                                                         \
         .access = ACCESS(DESCRIPTOR_PRESENT, ring, descriptor_type, segment_type),                                  \
@@ -217,15 +207,24 @@ void init_tss(uint32_t stack_ptr)
 
     tss.esp0 = stack_ptr;
     tss.ss0 = KERNEL_DATA_SELECTOR;
-    tss.cs = KERNEL_CODE_SELECTOR;
-    tss.ss = tss.ds = tss.es = tss.fs = tss.gs = KERNEL_DATA_SELECTOR;
-    tss.iomap_base = sizeof(tss);
 
     gdtr.limit = sizeof(gdt) - 1;
     gdtr.base = (uint32_t)&gdt;
 
-    __asm__ volatile("lgdt %0" : : "m"(gdtr));
-    __asm__ volatile("ltr %w0" : : "r"(TSS_SELECTOR));
+    __asm__ volatile(
+        " lgdt %0         \n"
+        " movw %2, %%ax   \n"
+        " movw %%ax, %%ds \n"
+        " movw %%ax, %%es \n"
+        " movw %%ax, %%fs \n"
+        " movw %%ax, %%gs \n"
+        " movw %%ax, %%ss \n"
+        " ljmp %3, $1f    \n" // Far jump to reload CS
+        " 1:              \n"
+        " ltr %w1         \n"
+        :
+        : "m"(gdtr), "r"(TSS_SELECTOR), "i"(KERNEL_DATA_SELECTOR), "i"(KERNEL_CODE_SELECTOR)
+        : "ax");
 }
 
 void init_gdt(void)

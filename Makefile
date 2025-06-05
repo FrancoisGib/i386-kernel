@@ -23,7 +23,7 @@ ASFLAGS = -felf
 LDFLAGS = -Tlink.ld -melf_i386 -z noexecstack
 ARCHFLAGS = -m32
 
-CFLAGS = -I$(INC_DIR) -std=c2x -O3 -g -ffreestanding -nostdlib -fno-pic -fno-pie -no-pie \
+CFLAGS = -I$(INC_DIR) -std=c2x -O0 -g -ffreestanding -nostdlib -fno-pic -fno-pie -no-pie \
 	-Wall \
 	-Wextra \
 	-Werror \
@@ -58,7 +58,7 @@ $(BUILD_DIR)/%.o: $(SRC_DIR)/%.c
 	$(CC) $(CFLAGS) $(ARCHFLAGS) -c $< -o $@
 
 $(BUILD_DIR)/%.o: $(SRC_DIR)/%.s
-	$(CC) $(ARCHFLAGS) -c $< -o $@
+	$(CC) $(CFLAGS) $(ARCHFLAGS) -c $< -o $@
 
 $(BUILD_DIR)/%.o: $(SRC_DIR)/%.asm
 	$(AS) $(ASFLAGS) $< -o $@

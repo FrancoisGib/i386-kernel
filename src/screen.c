@@ -22,9 +22,9 @@ void disable_cursor(void)
     outb(0x3D5, 0x20);
 }
 
-void set_cursor(int x, int y)
+void update_cursor()
 {
-    uint16_t pos = x + y * SCREEN_WIDTH;
+    uint16_t pos = cursor_x + cursor_y * SCREEN_WIDTH;
     outb(0x3D4, 0x0F);
     outb(0x3D5, (uint8_t)(pos & 0xFF));
     outb(0x3D4, 0x0E);
@@ -39,7 +39,7 @@ void screen_putc(char c, int x, int y, uint8_t color)
 
 void init_screen(void)
 {
-    // enable_cursor();
+    enable_cursor();
     clear_screen();
 }
 
@@ -52,7 +52,9 @@ void clear_screen(void)
             screen_putc(' ', x, y, 0xF);
         }
     }
-    set_cursor(0, 0);
+    cursor_x = 0;
+    cursor_y = 0;
+    update_cursor();
 }
 
 void putchar(char c)
@@ -78,5 +80,5 @@ void putchar(char c)
             cursor_y = 0;
         }
     }
-    set_cursor(cursor_x, cursor_y);
+    update_cursor();
 }
