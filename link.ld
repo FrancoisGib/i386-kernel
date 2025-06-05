@@ -2,12 +2,19 @@ ENTRY(_start)
 OUTPUT_FORMAT("elf32-i386")
 
 base_address = 0x100000;
+user_address = 0x400000;
 
 SECTIONS
 {
-	. = base_address;
+	. = user_address;
+	.user : AT(user_address)
+	{
+		build/user.o
+		. = ALIGN(4096);
+	}
 
-	.text :
+	. = base_address;
+	.text : AT(base_address)
 	{
 		*(.multiboot)
 		*(.text*)
@@ -36,7 +43,7 @@ SECTIONS
 	.stack :
 	{
 		_stack_bot = .; 
-		. += 16384;
+		. += 8192;
 		_stack_top = .;
 		. = ALIGN(4096);
 	}

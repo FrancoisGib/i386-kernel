@@ -16,5 +16,6 @@
 
 void putchar(char c);
 void init_screen(void);
+void clear_screen(void);
 
 #endif // __SCREEN_H__

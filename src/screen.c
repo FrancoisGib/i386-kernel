@@ -39,6 +39,12 @@ void screen_putc(char c, int x, int y, uint8_t color)
 
 void init_screen(void)
 {
+    // enable_cursor();
+    clear_screen();
+}
+
+void clear_screen(void)
+{
     for (size_t y = 0; y < SCREEN_HEIGHT; y++)
     {
         for (size_t x = 0; x < SCREEN_WIDTH; x++)
@@ -46,7 +52,7 @@ void init_screen(void)
             screen_putc(' ', x, y, 0xF);
         }
     }
-    enable_cursor();
+    set_cursor(0, 0);
 }
 
 void putchar(char c)
