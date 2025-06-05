@@ -14,6 +14,11 @@
 #define KERNEL_DATA_SELECTOR ((GDT_KERNEL_DATA_INDEX << 3) | (TI << 2) | RPL)
 #define TSS_SELECTOR ((GDT_TSS_INDEX << 3) | (TI << 2) | RPL)
 
+#define LIMIT_LOW(limit) ((limit) & 0xFFFF)
+#define BASE_LOW(base) ((base) & 0xFFFF)
+#define BASE_MID(base) (((base) >> 0x10) & 0xFF)
+#define BASE_HIGH(base) (((base) >> 0x18) & 0xFF)
+
 /**
  * @brief Constructs the access byte in a GDT entry with the different parameters.
  *
@@ -27,6 +32,16 @@
 #define ACCESS(present, ring, descriptor_type, segment_type) \
     (((present & 0b1) << 7) | ((ring & 0b11) << 5) | ((descriptor_type & 0b1) << 4) | (segment_type & 0xF))
 
+/**
+ * @brief Constructs the flags 4 bits of a gdt entry.
+ *
+ * @param available Available for system use.
+ * @param default_operation_size Sets default operation size (16 or 32 bit).
+ * @param long_mode Indicates if the descriptor is in long mode (64 bit) or not (32 bit).
+ * @param granularity Sets the granularity of the segment, in bytes or pages.
+ *
+ * @return The constructed flags to be used in a GDT entry
+ */
 #define FLAGS(available, default_operation_size, long_mode, granularity) \
     (((granularity & 0b1) << 3) | ((default_operation_size & 0b1) << 2) | ((long_mode & 0b1) << 1) | (available & 1))
 
@@ -34,7 +49,7 @@
  * @brief Constructs the flags byte and limit field for a GDT entry.
  *
  * @param limit The segment limit (20 bits, max = 0xFFFFF).
- * @param available Indicates if the segment is available or not.
+ * @param available Available for system use.
  * @param default_operation_size Sets default operation size (16 or 32 bit).
  * @param long_mode Sets if descriptor is for long mode.
  * @param granularity Sets the granularity (byte or 4 kilobytes pages).
@@ -44,13 +59,16 @@
 #define LIMIT_FLAGS(limit, available, default_operation_size, long_mode, granularity) \
     ((((limit) >> 16) & 0xF) | (FLAGS(available, default_operation_size, long_mode, granularity) << 4))
 
-#define GDT_ENTRY(base_address, limit, ring, descriptor_type, segment_type, granularity)                                      \
-    (gdt_entry_t){.limit_low = (limit) & 0xFFFF,                                                                              \
-                  .base_low = (base_address) & 0xFFFF,                                                                        \
-                  .base_mid = ((base_address) >> 0x10) & 0xFF,                                                                \
-                  .access = ACCESS(DESCRIPTOR_PRESENT, ring, descriptor_type, segment_type),                                  \
-                  .limit_flags = LIMIT_FLAGS(limit, AVAILABLE_FALSE, DEFAULT_OPERATION_SIZE_32, LONG_MODE_I386, granularity), \
-                  .base_high = ((base_address) >> 0x18) & 0xFF}
+#define GDT_ENTRY(base_address, limit, ring, descriptor_type, segment_type, granularity)                            \
+    (gdt_entry_t)                                                                                                   \
+    {                                                                                                               \
+        .limit_low = LIMIT_LOW(base_address),                                                                       \
+        .base_low = BASE_LOW(base_address),                                                                         \
+        .base_mid = BASE_MID(base_address),                                                                         \
+        .access = ACCESS(DESCRIPTOR_PRESENT, ring, descriptor_type, segment_type),                                  \
+        .limit_flags = LIMIT_FLAGS(limit, AVAILABLE_FALSE, DEFAULT_OPERATION_SIZE_32, LONG_MODE_I386, granularity), \
+        .base_high = BASE_HIGH(base_address)                                                                        \
+    }
 
 typedef enum
 {
@@ -192,20 +210,15 @@ gdt_entry_t gdt[GDT_SEGMENTS_NUMBER] = {
 };
 
 tss_t tss;
-extern char _stack_top;
 
 void init_tss(uint32_t stack_ptr)
 {
-    char *ptr = (char *)&tss;
-    for (unsigned int i = 0; i < sizeof(tss); i++)
-        *ptr++ = 0;
+    memset(&tss, 0, sizeof(tss));
 
-    tss.ss0 = 0x10;
     tss.esp0 = stack_ptr;
-
-    tss.cs = 0x8;
-    tss.ss = tss.ds = tss.es = tss.fs = tss.gs = 0x10;
-
+    tss.ss0 = KERNEL_DATA_SELECTOR;
+    tss.cs = KERNEL_CODE_SELECTOR;
+    tss.ss = tss.ds = tss.es = tss.fs = tss.gs = KERNEL_DATA_SELECTOR;
     tss.iomap_base = sizeof(tss);
 
     gdtr.limit = sizeof(gdt) - 1;
@@ -215,37 +228,18 @@ void init_tss(uint32_t stack_ptr)
     __asm__ volatile("ltr %w0" : : "r"(TSS_SELECTOR));
 }
 
-#ifdef DEBUG
-
-uint32_t gdt_get_base_address(gdt_entry_t *entry)
-{
-    return (entry->base_high << 24) | (entry->base_mid << 16) | (entry->base_low);
-}
-
-uint32_t gdt_get_limit(gdt_entry_t *entry)
-{
-    return ((entry->limit_flags & 0xF) << 16) | (entry->limit_low);
-}
-
-uint32_t gdt_get_flags(gdt_entry_t *entry)
-{
-    return (entry->limit_flags >> 4) & 0xF;
-}
-
-#endif
-
 void init_gdt(void)
 {
-    gdt[5] = GDT_ENTRY((uint32_t)&tss, sizeof(tss) - 1, 0, DESCRIPTOR_TYPE_SYSTEM, SYS_SEG_TYPE_TSS_AVAILABLE, GRANULARITY_BYTE);
-    gdt[5].limit_flags = LIMIT_FLAGS(sizeof(tss) - 1, AVAILABLE_FALSE, DEFAULT_OPERATION_SIZE_16, LONG_MODE_I386, GRANULARITY_BYTE);
+    gdt_entry_t *tss_gdt_entry = &gdt[GDT_TSS_INDEX];
+    uint32_t tss_address = (uint32_t)&tss;
 
-#ifdef DEBUG
-    for (int i = 0; i < GDT_SEGMENTS_NUMBER; i++)
-    {
-        gdt_entry_t *entry = &gdt[i];
-        printf("entry : %d, offset : 0x%x, base : 0x%x, limit : 0x%x, access : 0x%x, flags : 0x%x\n", i, (uint32_t)entry - (uint32_t)gdt, gdt_get_base_address(entry), gdt_get_limit(entry), entry->access, gdt_get_flags(entry));
-    }
-#endif
+    tss_gdt_entry->access = ACCESS(DESCRIPTOR_PRESENT, 0, DESCRIPTOR_TYPE_SYSTEM, SYS_SEG_TYPE_TSS_AVAILABLE);
+    tss_gdt_entry->base_high = BASE_HIGH(tss_address);
+    tss_gdt_entry->base_high = BASE_MID(tss_address);
+    tss_gdt_entry->base_high = BASE_LOW(tss_address);
+    tss_gdt_entry->limit_low = LIMIT_LOW(sizeof(tss) - 1);
+    tss_gdt_entry->limit_flags = LIMIT_FLAGS(sizeof(tss) - 1, AVAILABLE_FALSE, DEFAULT_OPERATION_SIZE_16, LONG_MODE_I386, GRANULARITY_BYTE);
 
+    extern char _stack_top;
     init_tss((uint32_t)&_stack_top);
 }
