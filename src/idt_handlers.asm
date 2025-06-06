@@ -4,10 +4,12 @@ extern global_int_handler
 
 .L_GDT_KERNEL_CODE_SEGMENT equ 0x10
 
+; double fault handler
 global fault_handler_0x8
 fault_handler_0x8:
     cli
-    push byte 0x8        ; we don't push a value on the stack in double fault handler (already one pushed)
+    pop byte edx                    ; first fault
+    push byte 0x8
     mov ecx, global_fault_handler
     jmp idt_global_handler
 
@@ -15,7 +17,6 @@ fault_handler_0x8:
 global fault_handler_%1
 fault_handler_%1:
     cli
-    push byte 0
     push byte %1
     mov ecx, global_fault_handler
     jmp idt_global_handler
@@ -25,7 +26,6 @@ fault_handler_%1:
 global irq_handler_%1
 irq_handler_%1:
     cli
-    push byte 0
     push byte %1
     mov ecx, global_irq_handler
     jmp idt_global_handler
@@ -35,7 +35,6 @@ irq_handler_%1:
 global int_handler_%1
 int_handler_%1:
     cli
-    push byte 0
     push byte %1
     mov ecx, global_int_handler
     jmp idt_global_handler
@@ -82,5 +81,5 @@ idt_global_handler:
     pop es
     pop ds
     popa
-    add esp, 8     ; Cleans up the pushed error code and pushed ISR number
+    add esp, 4     ; Cleans up the pushed error code and pushed ISR number
     iret           ; pops 5 things at once: CS, EIP, EFLAGS, SS, and ESP!
