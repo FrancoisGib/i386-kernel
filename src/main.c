@@ -10,7 +10,9 @@ void timer_irq(void)
 {
     printf("timer\n");
     outb(0x20, 0x20);
-    __asm__ volatile("sti");
+    // __asm__ volatile("sti");
+    for (;;)
+        ;
 }
 
 void main(void)
@@ -19,8 +21,8 @@ void main(void)
     init_gdt();
     init_idt();
     printf("Hello World !\n");
-    __asm__ volatile("sti");
-    // switch_user((uint32_t)user_stack_top);
+    // __asm__ volatile("sti");
+    switch_user((uint32_t)user_stack_top);
     // __asm__ volatile("hlt");
     for (;;)
         ;

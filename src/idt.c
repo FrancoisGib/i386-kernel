@@ -93,6 +93,23 @@ void remap_irq(void)
     outb(0xA1, 0x0);  /* enable all IRQs on PICS */
 }
 
+void syscall_handler(void)
+{
+    printf("ok\n");
+    for (;;)
+        ;
+}
+
+struct regs
+{
+    unsigned int gs, fs, es, ds;                         /* pushed the segs last */
+    unsigned int edi, esi, ebp, esp, ebx, edx, ecx, eax; /* pushed by 'pusha' */
+    unsigned int int_no, err_code;                       /* our 'push byte #' and ecodes do this */
+    unsigned int eip, cs, eflags, useresp, ss;           /* pushed by the processor automatically */
+};
+
+extern void _isr0(void);
+
 void init_idt(void)
 {
     remap_irq();
@@ -115,11 +132,27 @@ void init_idt(void)
     FAULT_ENTRY(0x14);
     FAULT_ENTRY(0x15);
 
-    // idt[0x80] = IDT_ENTRY(syscall_wrapper, KERNEL_CODE_SELECTOR, 0xE, 3);
+    idt[0x80] = IDT_ENTRY(_isr0, KERNEL_CODE_SELECTOR, 0xE, 3);
     idt[0x20] = IDT_ENTRY(timer_irq, KERNEL_CODE_SELECTOR, 0xE, 0);
 
     idtr.size = sizeof(idt) - 1;
     idtr.offset = (uint32_t)&idt;
 
     __asm__ volatile("lidt %0" ::"m"(idtr));
+}
+
+void _fault_handler(struct regs *r)
+{
+    /* Is this a fault whose number is from 0 to 31? */
+    if (r->int_no < 32)
+    {
+        /* Display the description for the Exception that occurred.
+         *  In this tutorial, we will simply halt the system using an
+         *  infinite loop */
+        // puts(exception_messages[r->int_no]);
+        puts(" Exception. System Halted!\n");
+        for (;;)
+            ;
+    }
+    printf("int\n");
 }

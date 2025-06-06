@@ -200,6 +200,7 @@ gdt_entry_t gdt[GDT_SEGMENTS_NUMBER] = {
 };
 
 tss_t tss;
+uint32_t iomap;
 
 void init_tss(uint32_t stack_ptr)
 {
@@ -208,8 +209,15 @@ void init_tss(uint32_t stack_ptr)
     tss.esp0 = stack_ptr;
     tss.ss0 = KERNEL_DATA_SELECTOR;
 
+    // tss.eflags &= ~0x1800;
+    // tss.eflags |= (3 << 12);
+
     tss.es = tss.ds = tss.fs = tss.gs = tss.ss = KERNEL_DATA_SELECTOR;
     tss.cs = KERNEL_CODE_SELECTOR;
+    tss.iomap_base = sizeof(tss);
+    // uint32_t iomap_ptr = (uint32_t)&iomap;
+    // tss.iomap_base = iomap_ptr & 0xFFFF;
+    // iomap = 0;
 
     gdtr.limit = sizeof(gdt) - 1;
     gdtr.base = (uint32_t)&gdt;
@@ -234,13 +242,14 @@ void init_gdt(void)
 {
     gdt_entry_t *tss_gdt_entry = &gdt[GDT_TSS_INDEX];
     uint32_t tss_address = (uint32_t)&tss;
+    uint32_t limit = sizeof(tss) - 1 /*+ 32*/;
 
     tss_gdt_entry->access = ACCESS(DESCRIPTOR_PRESENT, 0, DESCRIPTOR_TYPE_SYSTEM, SYS_SEG_TYPE_TSS_AVAILABLE);
     tss_gdt_entry->base_high = BASE_HIGH(tss_address);
-    tss_gdt_entry->base_high = BASE_MID(tss_address);
-    tss_gdt_entry->base_high = BASE_LOW(tss_address);
-    tss_gdt_entry->limit_low = LIMIT_LOW(sizeof(tss) - 1);
-    tss_gdt_entry->limit_flags = LIMIT_FLAGS(sizeof(tss) - 1, AVAILABLE_FALSE, DEFAULT_OPERATION_SIZE_16, LONG_MODE_I386, GRANULARITY_BYTE);
+    tss_gdt_entry->base_mid = BASE_MID(tss_address);
+    tss_gdt_entry->base_low = BASE_LOW(tss_address);
+    tss_gdt_entry->limit_low = LIMIT_LOW(limit);
+    tss_gdt_entry->limit_flags = LIMIT_FLAGS(limit, AVAILABLE_FALSE, DEFAULT_OPERATION_SIZE_32, LONG_MODE_I386, GRANULARITY_BYTE);
 
     extern char _stack_top;
     init_tss((uint32_t)&_stack_top);
