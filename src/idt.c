@@ -41,13 +41,82 @@ struct
     uint32_t offset;
 } __attribute__((packed)) idtr;
 
-extern void divide_by_zero_handler(void);
+#define FAULT_HANDLER(i, message) \
+    void fault_handler_##i(void)  \
+    {                             \
+        printf(message);          \
+        __asm__ volatile("hlt");  \
+    }
+
+#define FAULT_HANDLER_STATUS(i, message)                \
+    void fault_handler_##i(void)                        \
+    {                                                   \
+        uint32_t cr2 UNUSED;                            \
+        __asm__ volatile("movl %0, %%cr2" : "=r"(cr2)); \
+        printf("%s | CR2 : %x", message, cr2);          \
+        __asm__ volatile("hlt");                        \
+    }
+
+FAULT_HANDLER(0x0, "Divide Error")
+FAULT_HANDLER(0x5, "BOUND Range Exceeded")
+FAULT_HANDLER(0x6, "Invalid Opcode (Undefined Opcode)")
+FAULT_HANDLER(0x7, "Device Not Available (No Math Coprocessor)")
+FAULT_HANDLER_STATUS(0x8, "Double Fault")
+FAULT_HANDLER(0x9, "Coprocessor Segment Overrun (reserved)")
+FAULT_HANDLER_STATUS(0xA, "Invalid TSS")
+FAULT_HANDLER_STATUS(0xB, "Segment Not Present")
+FAULT_HANDLER_STATUS(0xC, "Stack-Segment Fault")
+FAULT_HANDLER_STATUS(0xD, "General Protection")
+FAULT_HANDLER_STATUS(0xE, "Page Fault")
+FAULT_HANDLER(0x10, "x87 FPU Floating-Point Error (Math Fault)")
+FAULT_HANDLER_STATUS(0x11, "Alignment Check")
+FAULT_HANDLER(0x12, "Machine Check")
+FAULT_HANDLER(0x13, "SIMD Floating-Point Exception")
+FAULT_HANDLER(0x14, "Virtualization Exception")
+FAULT_HANDLER_STATUS(0x15, "Control Protection Exception")
+
+#define FAULT_ENTRY(i) idt[i] = IDT_ENTRY(fault_handler_##i, KERNEL_CODE_SELECTOR, 0xE, 0)
+
+extern void timer_irq(void);
+
+void remap_irq(void)
+{
+    outb(0x20, 0x11); /* write ICW1 to PICM, we are gonna write commands to PICM */
+    outb(0xA0, 0x11); /* write ICW1 to PICS, we are gonna write commands to PICS */
+    outb(0x21, 0x20); /* remap PICM to 0x20 (32 decimal) */
+    outb(0xA1, 0x28); /* remap PICS to 0x28 (40 decimal) */
+    outb(0x21, 0x04); /* IRQ2 -> connection to slave */
+    outb(0xA1, 0x02);
+    outb(0x21, 0x01); /* write ICW4 to PICM, we are gonna write commands to PICM */
+    outb(0xA1, 0x01); /* write ICW4 to PICS, we are gonna write commands to PICS */
+    outb(0x21, 0x0);  /* enable all IRQs on PICM */
+    outb(0xA1, 0x0);  /* enable all IRQs on PICS */
+}
 
 void init_idt(void)
 {
+    remap_irq();
     memset(&idt, 0, sizeof(idt));
-    idt[0] = IDT_ENTRY(divide_by_zero_handler, KERNEL_CODE_SELECTOR, 0xE, 0);
-    // idt[0x80] = IDT_ENTRY(isr_handler, KERNEL_CODE_SELECTOR, 0xE, 3);
+    FAULT_ENTRY(0x0);
+    FAULT_ENTRY(0x5);
+    FAULT_ENTRY(0x6);
+    FAULT_ENTRY(0x7);
+    FAULT_ENTRY(0x8);
+    FAULT_ENTRY(0x9);
+    FAULT_ENTRY(0xA);
+    FAULT_ENTRY(0xB);
+    FAULT_ENTRY(0xC);
+    FAULT_ENTRY(0xD);
+    FAULT_ENTRY(0xE);
+    FAULT_ENTRY(0x10);
+    FAULT_ENTRY(0x11);
+    FAULT_ENTRY(0x12);
+    FAULT_ENTRY(0x13);
+    FAULT_ENTRY(0x14);
+    FAULT_ENTRY(0x15);
+
+    // idt[0x80] = IDT_ENTRY(syscall_wrapper, KERNEL_CODE_SELECTOR, 0xE, 3);
+    idt[0x20] = IDT_ENTRY(timer_irq, KERNEL_CODE_SELECTOR, 0xE, 0);
 
     idtr.size = sizeof(idt) - 1;
     idtr.offset = (uint32_t)&idt;

@@ -77,7 +77,7 @@ void putchar(char c)
         cursor_x = 0;
         if (++cursor_y == SCREEN_HEIGHT)
         {
-            cursor_y = 0;
+            clear_screen();
         }
     }
     update_cursor();

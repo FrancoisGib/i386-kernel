@@ -208,6 +208,9 @@ void init_tss(uint32_t stack_ptr)
     tss.esp0 = stack_ptr;
     tss.ss0 = KERNEL_DATA_SELECTOR;
 
+    tss.es = tss.ds = tss.fs = tss.gs = tss.ss = KERNEL_DATA_SELECTOR;
+    tss.cs = KERNEL_CODE_SELECTOR;
+
     gdtr.limit = sizeof(gdt) - 1;
     gdtr.base = (uint32_t)&gdt;
 
