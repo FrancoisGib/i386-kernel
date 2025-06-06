@@ -5,8 +5,8 @@ char *user_stack_top = &user_stack[8192];
 
 void user_main(void)
 {
-    __asm__ volatile("int $0x80");
-    // printf("sqalut\n");
+    unsigned int res = 0;
+    __asm__ volatile("int $0x80; mov %%eax, %0" : "=r"(res));
     for (;;)
         ;
 }

@@ -41,42 +41,6 @@ struct
     uint32_t offset;
 } __attribute__((packed)) idtr;
 
-#define FAULT_HANDLER(i, message) \
-    void fault_handler_##i(void)  \
-    {                             \
-        printf(message);          \
-        __asm__ volatile("hlt");  \
-    }
-
-#define FAULT_HANDLER_STATUS(i, message)                \
-    void fault_handler_##i(void)                        \
-    {                                                   \
-        uint32_t cr2 UNUSED;                            \
-        __asm__ volatile("movl %0, %%cr2" : "=r"(cr2)); \
-        printf("%s | CR2 : %x", message, cr2);          \
-        __asm__ volatile("hlt");                        \
-    }
-
-FAULT_HANDLER(0x0, "Divide Error")
-FAULT_HANDLER(0x5, "BOUND Range Exceeded")
-FAULT_HANDLER(0x6, "Invalid Opcode (Undefined Opcode)")
-FAULT_HANDLER(0x7, "Device Not Available (No Math Coprocessor)")
-FAULT_HANDLER_STATUS(0x8, "Double Fault")
-FAULT_HANDLER(0x9, "Coprocessor Segment Overrun (reserved)")
-FAULT_HANDLER_STATUS(0xA, "Invalid TSS")
-FAULT_HANDLER_STATUS(0xB, "Segment Not Present")
-FAULT_HANDLER_STATUS(0xC, "Stack-Segment Fault")
-FAULT_HANDLER_STATUS(0xD, "General Protection")
-FAULT_HANDLER_STATUS(0xE, "Page Fault")
-FAULT_HANDLER(0x10, "x87 FPU Floating-Point Error (Math Fault)")
-FAULT_HANDLER_STATUS(0x11, "Alignment Check")
-FAULT_HANDLER(0x12, "Machine Check")
-FAULT_HANDLER(0x13, "SIMD Floating-Point Exception")
-FAULT_HANDLER(0x14, "Virtualization Exception")
-FAULT_HANDLER_STATUS(0x15, "Control Protection Exception")
-
-#define FAULT_ENTRY(i) idt[i] = IDT_ENTRY(fault_handler_##i, KERNEL_CODE_SELECTOR, 0xE, 0)
-
 extern void timer_irq(void);
 
 void remap_irq(void)
@@ -93,47 +57,77 @@ void remap_irq(void)
     outb(0xA1, 0x0);  /* enable all IRQs on PICS */
 }
 
-void syscall_handler(void)
-{
-    printf("ok\n");
-    for (;;)
-        ;
-}
-
-struct regs
-{
-    unsigned int gs, fs, es, ds;                         /* pushed the segs last */
-    unsigned int edi, esi, ebp, esp, ebx, edx, ecx, eax; /* pushed by 'pusha' */
-    unsigned int int_no, err_code;                       /* our 'push byte #' and ecodes do this */
-    unsigned int eip, cs, eflags, useresp, ss;           /* pushed by the processor automatically */
+char *error_messages[] = {
+    "Divide Error",
+    NULL,
+    NULL,
+    NULL,
+    NULL,
+    "BOUND Range Exceeded",
+    "Invalid Opcode (Undefined Opcode)",
+    "Device Not Available (No Math Coprocessor)",
+    "Double Fault",
+    "Coprocessor Segment Overrun (reserved)",
+    "Invalid TSS",
+    "Segment Not Present",
+    "Stack-Segment Fault",
+    "General Protection",
+    "Page Fault",
+    NULL,
+    "x87 FPU Floating-Point Error (Math Fault)",
+    "Alignment Check",
+    "Machine Check",
+    "SIMD Floating-Point Exception",
+    "Virtualization Exception",
+    "Control Protection Exception",
 };
 
-extern void _isr0(void);
+#define FAULT_HANDLER(i)                 \
+    extern void fault_handler_##i(void); \
+    idt[i] = IDT_ENTRY(fault_handler_##i, KERNEL_CODE_SELECTOR, 0xE, 0);
+
+#define IRQ_HANDLER(i, handler)                                        \
+    extern void irq_handler_##i(void);                                 \
+    idt[i] = IDT_ENTRY(irq_handler_##i, KERNEL_CODE_SELECTOR, 0xE, 0); \
+    irq_handlers[i >= 0x70 ? 0x78 - i : 0x2F - i] = handler;
+
+#define INT_HANDLER(i, handler)                                        \
+    extern void int_handler_##i(void);                                 \
+    idt[i] = IDT_ENTRY(int_handler_##i, KERNEL_CODE_SELECTOR, 0xE, 3); \
+    int_handlers[i - 0x80] = handler;
+
+void *irq_handlers[16];
+void *int_handlers[128];
+
+extern void syscall_handler(struct regs *r);
 
 void init_idt(void)
 {
     remap_irq();
     memset(&idt, 0, sizeof(idt));
-    FAULT_ENTRY(0x0);
-    FAULT_ENTRY(0x5);
-    FAULT_ENTRY(0x6);
-    FAULT_ENTRY(0x7);
-    FAULT_ENTRY(0x8);
-    FAULT_ENTRY(0x9);
-    FAULT_ENTRY(0xA);
-    FAULT_ENTRY(0xB);
-    FAULT_ENTRY(0xC);
-    FAULT_ENTRY(0xD);
-    FAULT_ENTRY(0xE);
-    FAULT_ENTRY(0x10);
-    FAULT_ENTRY(0x11);
-    FAULT_ENTRY(0x12);
-    FAULT_ENTRY(0x13);
-    FAULT_ENTRY(0x14);
-    FAULT_ENTRY(0x15);
+    memset(irq_handlers, 0, sizeof(irq_handlers));
+    memset(int_handlers, 0, sizeof(int_handlers));
 
-    idt[0x80] = IDT_ENTRY(_isr0, KERNEL_CODE_SELECTOR, 0xE, 3);
-    idt[0x20] = IDT_ENTRY(timer_irq, KERNEL_CODE_SELECTOR, 0xE, 0);
+    FAULT_HANDLER(0x0);
+    FAULT_HANDLER(0x5);
+    FAULT_HANDLER(0x6);
+    FAULT_HANDLER(0x7);
+    FAULT_HANDLER(0x8);
+    FAULT_HANDLER(0x9);
+    FAULT_HANDLER(0xA);
+    FAULT_HANDLER(0xB);
+    FAULT_HANDLER(0xC);
+    FAULT_HANDLER(0xD);
+    FAULT_HANDLER(0xE);
+    FAULT_HANDLER(0x10);
+    FAULT_HANDLER(0x11);
+    FAULT_HANDLER(0x12);
+    FAULT_HANDLER(0x13);
+    FAULT_HANDLER(0x14);
+    FAULT_HANDLER(0x15);
+
+    IRQ_HANDLER(0x20, timer_irq);
+    INT_HANDLER(0x80, syscall_handler);
 
     idtr.size = sizeof(idt) - 1;
     idtr.offset = (uint32_t)&idt;
@@ -141,18 +135,56 @@ void init_idt(void)
     __asm__ volatile("lidt %0" ::"m"(idtr));
 }
 
-void _fault_handler(struct regs *r)
+void global_fault_handler(struct regs *r)
 {
-    /* Is this a fault whose number is from 0 to 31? */
-    if (r->int_no < 32)
+    if (r->int_no < 0x20)
     {
-        /* Display the description for the Exception that occurred.
-         *  In this tutorial, we will simply halt the system using an
-         *  infinite loop */
-        // puts(exception_messages[r->int_no]);
-        puts(" Exception. System Halted!\n");
+        printf("Error caught: 0x%x", r->err_code);
+        if (r->int_no < (sizeof(error_messages) / sizeof(char *)) && error_messages[r->int_no] != NULL)
+        {
+            printf(", %s\n", error_messages[r->int_no]);
+        }
         for (;;)
             ;
     }
-    printf("int\n");
+}
+
+typedef void (*idt_handler_t)(struct regs *r);
+
+void global_irq_handler(struct regs *r)
+{
+    uint8_t handler_index = 0;
+    if (r->int_no >= 0x20 && r->int_no <= 0x28)
+    {
+        handler_index = 0x2F - r->int_no;
+    }
+    else if (r->int_no >= 0x70 && r->int_no <= 0x78)
+    {
+        handler_index = 0x78 - r->int_no;
+    }
+
+    if (handler_index != 0 && irq_handlers[handler_index] != NULL)
+    {
+        idt_handler_t handler = irq_handlers[handler_index];
+        handler(r);
+    }
+
+    if (r->int_no >= 0x28)
+    {
+        outb(0xA0, 0x20);
+    }
+
+    /* In either case, we need to send an EOI to the master
+     *  interrupt controller too */
+    outb(0x20, 0x20);
+}
+
+void global_int_handler(struct regs *r)
+{
+    int16_t handler_index = (uint8_t)r->int_no - 128;
+    if (int_handlers[handler_index] != NULL)
+    {
+        idt_handler_t handler = int_handlers[handler_index];
+        handler(r);
+    }
 }
