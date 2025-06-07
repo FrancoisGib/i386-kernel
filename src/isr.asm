@@ -22,34 +22,26 @@ fault_handler_%1:
     jmp isr_handler
 %endmacro
 
-%macro FAULT_HANDLER_NO_ERR_CODE 1
-global fault_handler_%1
-fault_handler_%1:
+%macro HANDLER 2
+global %1_handler_%2
+%1_handler_%2:
     cli
     push 0
-    push %1
-    mov ecx, global_fault_handler
+    push %2
+    mov ecx, global_%1_handler
     jmp isr_handler
+%endmacro
+
+%macro FAULT_HANDLER_NO_ERR_CODE 1
+HANDLER fault, %1
 %endmacro
 
 %macro IRQ_HANDLER 1
-global irq_handler_%1
-irq_handler_%1:
-    cli
-    push 0
-    push %1
-    mov ecx, global_irq_handler
-    jmp isr_handler
+HANDLER irq, %1
 %endmacro
 
 %macro INT_HANDLER 1
-global int_handler_%1
-int_handler_%1:
-    cli
-    push 0
-    push %1
-    mov ecx, global_int_handler
-    jmp isr_handler
+HANDLER int, %1
 %endmacro
 
 FAULT_HANDLER_NO_ERR_CODE 0x0
