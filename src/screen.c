@@ -67,6 +67,14 @@ void putchar(char c)
         break;
     }
 
+    case '\b':
+    {
+        cursor_x--;
+        screen_putc(' ', cursor_x, cursor_y, 0x0F);
+        cursor_x--;
+        break;
+    }
+
     default:
         screen_putc(c, cursor_x, cursor_y, 0x0F);
         break;

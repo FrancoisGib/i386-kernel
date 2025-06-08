@@ -45,7 +45,7 @@ all: $(IMAGE)
 run: $(IMAGE)
 	qemu-system-i386 -gdb tcp::3333 -cdrom $(IMAGE)
 
-$(IMAGE): $(BUILD_DIR) | $(BIN)
+$(IMAGE): $(BUILD_DIR) $(BIN)
 	mkdir -p $(BUILD_DIR)/boot/grub
 	cp grub.cfg $(BUILD_DIR)/boot/grub
 	grub-mkrescue -d $(GRUB_DIR) -o $(IMAGE) $(BUILD_DIR)
@@ -69,7 +69,6 @@ $(BUILD_DIR):
 
 debug:
 	gdb $(BIN)
-
 
 clean:
 	rm -rf $(BUILD_DIR) $(IMAGE)

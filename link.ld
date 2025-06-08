@@ -7,13 +7,18 @@ user_address = 0x400000;
 SECTIONS
 {
 	. = user_address;
+
 	.user : AT(user_address)
 	{
+		_user_start = .;
 		build/user.o
 		. = ALIGN(4096);
+		_user_end = .;
 	}
 
 	. = base_address;
+	_ro_start = .;
+
 	.text : AT(base_address)
 	{
 		*(.multiboot)
@@ -26,7 +31,9 @@ SECTIONS
 		*(.rodata*)
 		. = ALIGN(4096);
 	}
+	_ro_end = .;
 
+	_rw_start = .;
 	.data :
 	{
 		*(.data*)
@@ -39,7 +46,9 @@ SECTIONS
 		*(COMMON)
 		. = ALIGN(4096);
 	}
+	_rw_end = .;
 
+	_stack_start = .;
 	.stack :
 	{
 		_stack_bot = .; 
@@ -47,4 +56,5 @@ SECTIONS
 		_stack_top = .;
 		. = ALIGN(4096);
 	}
+	_stack_end = .;
 }
