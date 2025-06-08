@@ -37,8 +37,8 @@ CFLAGS = -I$(INC_DIR) -std=c2x -O0 -g -ffreestanding -nostdlib -fno-pic -fno-pie
 
 STRIP_SYMBOLS = cursor_x \
 				cursor_y
+STRIP_SYMBOLS += $(shell nm build/idt.o | awk '/U (fault|int|irq)_/' | sed 's/^[[:space:]]*U //')
 STRIP_FLAGS = $(addprefix --strip-symbol=, $(STRIP_SYMBOLS))
-
 
 all: $(IMAGE)
 
@@ -52,7 +52,8 @@ $(IMAGE): $(BUILD_DIR) | $(BIN)
 
 $(BIN): $(AOBJS) $(COBJS)
 	$(LD) $(LDFLAGS) $^ -o $@
-	$(OBJCOPY) $(STRIP_FLAGS) $@
+	@$(OBJCOPY) $(STRIP_FLAGS) $@
+	@echo $(OBJCOPY) $@ strip all unused symbols
 
 $(BUILD_DIR)/%.o: $(SRC_DIR)/%.c
 	$(CC) $(CFLAGS) $(ARCHFLAGS) -c $< -o $@
