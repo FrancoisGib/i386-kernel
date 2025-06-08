@@ -457,6 +457,6 @@ void global_int_handler(struct regs *r)
     }
     else
     {
-        printf("Unhandled interrupt : %x\n", r->int_no);
+        printf("Unhandled interrupt : 0x%x\n", r->int_no);
     }
 }

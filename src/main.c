@@ -38,6 +38,6 @@ void main(void)
     set_int_handler(0x80, syscall_handler, 3);
 
     printf("Hello World !\n");
-    __asm__ volatile("sti");
+    // __asm__ volatile("sti");
     switch_user((uint32_t)user_stack_top);
 }
