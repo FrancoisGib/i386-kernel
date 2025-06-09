@@ -8,5 +8,6 @@
 void init_mmu(void);
 void enable_mmu(void);
 void disable_mmu(void);
+void page_fault_handler(struct regs *r);
 
 #endif // __MMU_H__

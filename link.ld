@@ -48,13 +48,17 @@ SECTIONS
 	}
 	_rw_end = .;
 
-	_stack_start = .;
 	.stack :
 	{
-		_stack_bot = .; 
+		_kernel_stack_bot = .; 
 		. += 8192;
-		_stack_top = .;
 		. = ALIGN(4096);
+		_kernel_stack_top = .;
 	}
-	_stack_end = .;
+
+	/DISCARD/ :
+	{
+    	*(.eh_frame)
+    	*(.eh_frame_hdr)
+	}
 }

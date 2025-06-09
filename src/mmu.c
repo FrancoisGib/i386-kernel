@@ -36,7 +36,7 @@
 })
 
 #define PAGE_TO_ADDR(page) ((void *)((uintptr_t)page << 12))
-#define ADDR_TO_PAGE(addr) ((uint16_t)((uintptr_t)addr >> 12))
+#define ADDR_TO_PAGE(addr) ((uint32_t)((uintptr_t)addr >> 12))
 
 typedef struct
 {
@@ -71,8 +71,8 @@ directory_entry_t page_directory[NUM_ENTRIES] __attribute__((aligned(PAGE_SIZE))
 page_entry_t page_tables[NB_PAGES] __attribute__((aligned(PAGE_SIZE)));
 
 directory_entry_t *page_directory_ptr = page_directory;
-int16_t first_free_page = 0;
-int16_t pages[NB_PAGES];
+int32_t first_free_page = 0;
+int32_t pages[NB_PAGES];
 
 void init_pages(void)
 {
@@ -120,29 +120,60 @@ static void setup_page_directory(uint16_t directory_index, uint8_t access_mode, 
     page_directory[directory_index].page_table = ADDR_TO_PAGE(page_table);
 }
 
-static void setup_page_range(uint16_t begin, uint16_t end, uint8_t access_mode, uint8_t write_access)
+static void setup_identity_page_range(uint32_t begin, uint32_t end, uint8_t access_mode, uint8_t write_access)
 {
-    for (uint16_t i = begin; i < end; i++)
+    for (uint32_t i = begin; i < end; i++)
     {
-        void *page = alloc_page();
         page_tables[i].valid = 1;
         page_tables[i].cache_disabled = 1;
         page_tables[i].access_mode = access_mode;
         page_tables[i].write_access = write_access;
-        page_tables[i].physical_page = ADDR_TO_PAGE(page);
+        page_tables[i].physical_page = i;
     }
 }
+
+// static void setup_page_range(uint32_t begin, uint32_t end, uint32_t phys_addr, uint8_t access_mode, uint8_t write_access)
+// {
+//     for (uint32_t i = begin; i < end; i++)
+//     {
+//         void *page = alloc_page();
+//         uint32_t virtual_page = ADDR_TO_PAGE(page);
+//         page_tables[virtual_page].valid = 1;
+//         page_tables[virtual_page].cache_disabled = 1;
+//         page_tables[virtual_page].access_mode = access_mode;
+//         page_tables[virtual_page].write_access = write_access;
+//         page_tables[virtual_page].physical_page = ADDR_TO_PAGE(phys_addr + (i * PAGE_SIZE));
+//     }
+// }
 
 void init_mmu(void)
 {
     init_pages();
+    extern char _ro_start;
+    extern char _ro_end;
+    uint32_t kernel_ro_start_page = ADDR_TO_PAGE(&_ro_start);
+    uint32_t kernel_ro_end_page = ADDR_TO_PAGE(&_ro_end);
+
+    extern char _rw_start;
+    extern char _rw_end;
+    uint32_t kernel_rw_start_page = ADDR_TO_PAGE(&_rw_start);
+    uint32_t kernel_rw_end_page = ADDR_TO_PAGE(&_rw_end);
+
+    extern char _kernel_stack_bot;
+    extern char _kernel_stack_top;
+    uint32_t kernel_stack_start_page = ADDR_TO_PAGE(&_kernel_stack_bot);
+    uint32_t kernel_stack_end_page = ADDR_TO_PAGE(&_kernel_stack_top);
 
     // Setup kernel page directory
     setup_page_directory(KERNEL_DIR, KERNEL_MODE, RW_MODE);
-    setup_page_range(0, NUM_ENTRIES, KERNEL_MODE, RW_MODE);
+    // setup_identity_page_range(0x100, 0x120, KERNEL_MODE, RO_MODE);
 
+    setup_identity_page_range(kernel_ro_start_page, kernel_ro_end_page, KERNEL_MODE, RO_MODE);
+    setup_identity_page_range(kernel_rw_start_page, kernel_rw_end_page, KERNEL_MODE, RW_MODE);
+    setup_identity_page_range(kernel_stack_start_page, kernel_stack_end_page, KERNEL_MODE, RW_MODE);
+
+    setup_identity_page_range(ADDR_TO_PAGE(0xB8000), ADDR_TO_PAGE((0xB8000 + (25 * 80))) + 1, KERNEL_MODE, RW_MODE);
     SET_CR3(page_directory);
-    MMU_ENABLE();
 }
 
 void enable_mmu(void)
@@ -153,4 +184,19 @@ void enable_mmu(void)
 void disable_mmu(void)
 {
     MMU_DISABLE();
+}
+
+void *get_cr2(void)
+{
+    void *cr2;
+    __asm__ volatile("movl %%cr2, %0" : "=r"(cr2));
+    return cr2;
+}
+
+void page_fault_handler(struct regs *r)
+{
+    void *cr2 = get_cr2();
+    printf("Memory fault at address : %x, instruction : %x, err : %x\n", cr2, r->eip, r->err_code);
+    for (;;)
+        ;
 }

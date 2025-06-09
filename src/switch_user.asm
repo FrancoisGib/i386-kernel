@@ -1,5 +1,4 @@
 extern user_main
-extern user_address
 
 global switch_user
 switch_user:
@@ -15,8 +14,5 @@ switch_user:
 	push ecx ; user stack (first param)
 	pushf ; eflags
 	push (3 * 8) | 3 ; code selector (ring 3 code with bottom 2 bits set for ring 3)
-	;mov eax, user_main
-	;sub eax, user_address  ; user_main minus user code address
-	;push eax 				 ; instruction address to return to
-	push user_main - 0x400000
+	push user_main
 	iret

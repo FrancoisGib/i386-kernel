@@ -16,7 +16,7 @@ extern char *user_stack_top;
 
 void timer_irq(void)
 {
-    // printf("timer\n");
+    printf("timer\n");
 }
 
 void main(void)
@@ -27,11 +27,14 @@ void main(void)
     init_idt();
     init_mmu();
 
-    set_irq_handler(0x20, timer_irq);
+    // set_irq_handler(0x20, timer_irq);
     set_irq_handler(0x21, keyboard_handler);
     set_int_handler(0x80, syscall_handler, 3);
+    set_fault_handler(0xE, page_fault_handler);
 
-    printf("Hello World !\n");
+    enable_mmu();
+
+    // printf("Hello World !\n");
     __asm__ volatile("sti");
     // switch_user((uint32_t)user_stack_top);
     for (;;)

@@ -17,14 +17,14 @@
     .long .L_MULTIBOOT_TAG_SIZE
 .L_multiboot_end:
 
-.extern _stack_top
+.extern _kernel_stack_top
 .extern main
 
 .section .text
 .global _start
 .type _start, @function
 _start:
-	movl $_stack_top, %esp
+	movl $_kernel_stack_top, %esp
 	call main
 	cli
 	hlt
