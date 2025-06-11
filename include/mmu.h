@@ -5,6 +5,21 @@
 #include "idt.h"
 #include "lib.h"
 
+#define MMU_ENABLE() ({                             \
+    uint32_t cr0;                                   \
+    __asm__ volatile("movl %%cr0, %0" : "=r"(cr0)); \
+    cr0 |= CR0_PG;                                  \
+    __asm__ volatile("movl %0, %%cr0" ::"r"(cr0));  \
+})
+
+#define MMU_DISABLE() ({                            \
+    uint32_t cr0;                                   \
+    __asm__ volatile("movl %%cr0, %0" : "=r"(cr0)); \
+    cr0 &= ~CR0_PG;                                 \
+    __asm__ volatile("movl %0, %%cr0" ::"r"(cr0));  \
+})
+
+void init_mmu(void);
 void init_mmu(void);
 void enable_mmu(void);
 void disable_mmu(void);

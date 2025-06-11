@@ -1,6 +1,6 @@
 #include "lib.h"
-#include "gdt.h"
-#include "idt.h"
+// #include "gdt.h"
+// #include "idt.h"
 #include "mmu.h"
 #include "keyboard.h"
 
@@ -21,21 +21,21 @@ void timer_irq(void)
 
 void main(void)
 {
-    init_screen();
-    init_key_map();
-    init_gdt();
-    init_idt();
-    init_mmu();
+    // init_screen();
+    // init_key_map();
+    // // init_gdt();
+    // // init_idt();
+    // init_mmu();
 
     // set_irq_handler(0x20, timer_irq);
-    set_irq_handler(0x21, keyboard_handler);
-    set_int_handler(0x80, syscall_handler, 3);
-    set_fault_handler(0xE, page_fault_handler);
+    // set_irq_handler(0x21, keyboard_handler);
+    // set_int_handler(0x80, syscall_handler, 3);
+    // set_fault_handler(0xE, page_fault_handler);
 
-    enable_mmu();
+    // enable_mmu();
 
     // printf("Hello World !\n");
-    __asm__ volatile("sti");
+    // __asm__ volatile("sti");
     // switch_user((uint32_t)user_stack_top);
     for (;;)
         ;

@@ -1,8 +1,10 @@
 ENTRY(_start)
 OUTPUT_FORMAT("elf32-i386")
 
-base_address = 0x100000;
-user_address = 0x400000;
+kernel_phys_address = 0x100000;
+user_address = 0x40000000;
+
+kernel_virt_address = 0xC0000000;
 
 SECTIONS
 {
@@ -16,12 +18,46 @@ SECTIONS
 		_user_end = .;
 	}
 
-	. = base_address;
+	
+	. = kernel_phys_address;
+	.boot : AT(kernel_phys_address)
+	{
+		_boot_start = .;
+
+		*(.multiboot)
+		build/crt0.o (.text .rodata)
+		build/boot.o (.text .rodata)
+		build/screen.o
+		build/lib.o
+		build/mmu.o
+
+		. = ALIGN(4096);
+		_boot_end = .;
+	}
+
+	.boot_rw : 
+	{
+		_boot_rw_start = .;
+		
+		build/crt0.o
+		build/boot.o
+
+		. = ALIGN(4096);
+		_boot_stack_bot = .;
+		. += 4096;
+		_boot_stack_top = .;
+
+		_boot_rw_end = .;
+	}
+
+
+	_kernel_lma_start = kernel_phys_address + SIZEOF(.boot) + SIZEOF(.boot_rw);
+
+	. = kernel_virt_address;
 	_ro_start = .;
 
-	.text : AT(base_address)
+	.text : AT(_kernel_lma_start)
 	{
-		*(.multiboot)
 		*(.text*)
 		. = ALIGN(4096);
 	}

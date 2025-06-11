@@ -20,7 +20,7 @@ AOBJS = $(patsubst $(SRC_DIR)/%.s, $(BUILD_DIR)/%.o, $(wildcard $(SRC_DIR)/*.s))
 		$(patsubst $(SRC_DIR)/%.asm, $(BUILD_DIR)/%.o, $(wildcard $(SRC_DIR)/*.asm))
 
 ASFLAGS = -felf
-LDFLAGS = -Tlink.ld -melf_i386 -z noexecstack
+LDFLAGS = -Tlink.ld -melf_i386 -z noexecstack -z max-page-size=4096
 ARCHFLAGS = -m32
 
 CFLAGS = -I$(INC_DIR) -std=c2x -O0 -g -ffreestanding -nostdlib -fno-pic -fno-pie -no-pie \
@@ -43,7 +43,7 @@ STRIP_FLAGS = $(addprefix --strip-symbol=, $(STRIP_SYMBOLS))
 all: $(IMAGE)
 
 run: $(IMAGE)
-	qemu-system-i386 -gdb tcp::3333 -cdrom $(IMAGE)
+	qemu-system-i386 -gdb tcp::3333 -m 2G -cdrom $(IMAGE)
 
 $(IMAGE): $(BUILD_DIR) $(BIN)
 	mkdir -p $(BUILD_DIR)/boot/grub
